@@ -40,15 +40,8 @@ export default function App() {
         {view === 'checkin' && (
           <CheckIn onComplete={handleCheckInComplete} />
         )}
-        {view === 'result' && drsData && (
-          <DRSResult
-            drsData={drsData}
-            stateInfo={drsData.stateInfo}
-            onRetake={() => setView('checkin')}
-          />
-        )}
-        {view === 'result' && !drsData && (
-          <CheckIn onComplete={handleCheckInComplete} />
+        {view === 'result' && (
+          <DRSResult drsData={drsData} />
         )}
         {view === 'history' && (
           <History data={historicalData} />

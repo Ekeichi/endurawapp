@@ -1,12 +1,31 @@
 import { useState, useEffect } from 'react'
 import { historicalData, athleteProfile } from '../data/lucasData'
+import { getStateInfo } from '../utils/drs'
 
 const GREEN = '#22C55E'
 const ORANGE = '#F97316'
 const RED = '#EF4444'
+const GRAY = '#9CA3AF'
 const CTL_MAX = 53.7 // historical max fitness, mirrors drs.js
 
+// "Today" is fixed to June 8, 2026 — one day after the last data point, so it
+// has no historical entry until the check-in is completed.
+const TODAY = '2026-06-08'
+
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
+
+const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.']
+const MONTHS_SHORT = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aoû.', 'sep.', 'oct.', 'nov.', 'déc.']
+
+// Parse a YYYY-MM-DD string as a local date (avoids UTC off-by-one).
+function parseDate(s) {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+function shortDate(dateStr) {
+  const d = parseDate(dateStr)
+  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
 
 function Sparkline({ data, color, width = 110, height = 34, highlightLast = false }) {
   const W = width, H = height, pad = 4
@@ -59,9 +78,9 @@ function gaugeColor(v) {
   return '#22C55E'
 }
 
-// Semicircular arc gauge that sits behind the score number. Animates the fill
-// from 0 to the DRS value on mount via stroke-dashoffset.
-function ArcGauge({ value }) {
+// Semicircular arc gauge behind the score number. Animates the fill from 0 to
+// the value via stroke-dashoffset; re-animates whenever the value changes.
+function ArcGauge({ value, dimmed }) {
   const R = 92, SW = 8, CX = 110, CY = 102
   const len = Math.PI * R
   const target = len * (1 - clamp(value, 0, 100) / 100)
@@ -74,59 +93,37 @@ function ArcGauge({ value }) {
   return (
     <svg viewBox="0 0 220 112" width="100%" style={{ display: 'block', overflow: 'visible' }}>
       <path d={d} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={SW} strokeLinecap="round" />
-      <path
-        d={d}
-        fill="none"
-        stroke={gaugeColor(value)}
-        strokeWidth={SW}
-        strokeLinecap="round"
-        strokeDasharray={len}
-        strokeDashoffset={offset}
-        style={{ transition: 'stroke-dashoffset 800ms ease-out' }}
-      />
+      {!dimmed && (
+        <path
+          d={d}
+          fill="none"
+          stroke={gaugeColor(value)}
+          strokeWidth={SW}
+          strokeLinecap="round"
+          strokeDasharray={len}
+          strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 800ms ease-out' }}
+        />
+      )}
     </svg>
   )
 }
 
-function formatDateFr(date) {
-  const days = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
-  const months = [
-    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-  ]
-  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`
+function Chevron({ dir }) {
+  const points = dir === 'left' ? '15 18 9 12 15 6' : '9 18 15 12 9 6'
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1C2E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points={points} />
+    </svg>
+  )
 }
 
-export default function DRSResult({ drsData, stateInfo, onRetake }) {
-  const previousScore = historicalData[historicalData.length - 1].rrs_daily
-  const delta = Math.round(drsData.score) - Math.round(previousScore)
-
-  const today = new Date()
-  const dateLabel = formatDateFr(today)
-
-  const { score, fitness, fatigueRatio, s_subj } = drsData
-  const { label, comment, color } = stateInfo
-
-  // Personal average DRS across history, for the "Moyenne" readout.
-  const personalAvg = Math.round(
-    historicalData.reduce((sum, d) => sum + d.rrs_daily, 0) / historicalData.length
-  )
-  const aboveAvg = Math.round(score) >= personalAvg
-
-  const glass = {
-    background: 'rgba(255,255,255,0.35)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderRadius: 24,
-    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-  }
-
-  // --- Lecture du jour: three read-only pastille rows ---
+// Lecture du jour rows from a resolved day model (charge / forme / bien-être).
+function buildLectureRows({ fatigueRatio, fitness, s_subj }) {
   const chargeFilled = clamp(Math.round(fatigueRatio * 5), 0, 5)
   const formeFilled = clamp(Math.round((fitness / CTL_MAX) * 5), 0, 5)
   const bienFilled = clamp(Math.round(s_subj * 5), 0, 5)
-
-  const lectureRows = [
+  return [
     {
       name: 'Charge',
       filled: chargeFilled,
@@ -155,9 +152,90 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
         : { stateLabel: 'Bas', color: RED }),
     },
   ]
+}
 
-  // --- 5-day DRS trend (4 historical days + today) ---
-  const trendData = [...historicalData.slice(-4).map((d) => d.rrs_daily), score]
+const PENDING_ROWS = [
+  { name: 'Charge', filled: 0, stateLabel: '—', color: GRAY },
+  { name: 'Forme', filled: 0, stateLabel: '—', color: GRAY },
+  { name: 'Bien-être', filled: 0, stateLabel: '—', color: GRAY },
+]
+
+export default function DRSResult({ drsData }) {
+  // Browsable timeline: every historical day plus today (June 8).
+  const dates = [...historicalData.map((d) => d.date), TODAY]
+  const [selectedDate, setSelectedDate] = useState(TODAY)
+
+  const idx = dates.indexOf(selectedDate)
+  const isToday = selectedDate === TODAY
+  const isFirst = idx <= 0
+  const histIndex = historicalData.findIndex((d) => d.date === selectedDate)
+
+  const pending = isToday && !drsData
+
+  // Resolve a uniform day model for whichever date is selected.
+  let model = null
+  if (isToday && drsData) {
+    model = {
+      score: drsData.score,
+      state: drsData.state,
+      fitness: drsData.fitness,
+      fatigueRatio: drsData.fatigueRatio,
+      s_subj: drsData.s_subj,
+      prevScore: historicalData[historicalData.length - 1].rrs_daily, // June 7
+      trend: [...historicalData.slice(-4).map((d) => d.rrs_daily), drsData.score],
+    }
+  } else if (!isToday) {
+    const e = historicalData[histIndex]
+    model = {
+      score: e.rrs_daily,
+      state: e.etat,
+      fitness: e.ctl,
+      fatigueRatio: e.atl_ctl_ratio,
+      s_subj: e.s_subjectif,
+      prevScore: histIndex > 0 ? historicalData[histIndex - 1].rrs_daily : null,
+      trend: historicalData.slice(Math.max(0, histIndex - 4), histIndex + 1).map((d) => d.rrs_daily),
+    }
+  }
+
+  const stateInfo = pending ? null : getStateInfo(model.state)
+  const scoreNum = pending ? null : Math.round(model.score)
+  const label = pending ? 'Check-in non complété' : stateInfo.label
+  const comment = pending
+    ? 'Complète ton check-in pour découvrir ton état du jour.'
+    : stateInfo.comment
+  const dotColor = pending ? GRAY : stateInfo.color
+
+  const delta = !pending && model.prevScore != null ? scoreNum - Math.round(model.prevScore) : null
+
+  const personalAvg = Math.round(
+    historicalData.reduce((sum, d) => sum + d.rrs_daily, 0) / historicalData.length
+  )
+  const aboveAvg = !pending && scoreNum >= personalAvg
+
+  const lectureRows = pending ? PENDING_ROWS : buildLectureRows(model)
+
+  // Trend: June 3–7 while pending; otherwise the 5 days ending on the selected day.
+  const trendData = pending ? historicalData.slice(-5).map((d) => d.rrs_daily) : model.trend
+  const trendBig = Math.round(trendData[trendData.length - 1])
+
+  const glass = {
+    background: 'rgba(255,255,255,0.35)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: 24,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+  }
+
+  const navBtn = (disabled) => ({
+    background: 'none',
+    border: 'none',
+    padding: 2,
+    display: 'flex',
+    alignItems: 'center',
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.22 : 1,
+    pointerEvents: disabled ? 'none' : 'auto',
+  })
 
   return (
     <div
@@ -171,7 +249,7 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
         flexDirection: 'column',
       }}
     >
-      {/* 1. Header row */}
+      {/* 1. Header row with date navigator */}
       <div
         style={{
           display: 'flex',
@@ -181,25 +259,37 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
         }}
       >
         <div>
-          <div
-            style={{
-              fontSize: 11,
-              color: 'rgba(28,28,46,0.45)',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              fontWeight: 600,
-              marginBottom: 4,
-            }}
-          >
-            {dateLabel}
+          {/* Date navigator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <button
+              onClick={() => setSelectedDate(dates[idx - 1])}
+              disabled={isFirst}
+              aria-label="Jour précédent"
+              style={navBtn(isFirst)}
+            >
+              <Chevron dir="left" />
+            </button>
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#1C1C2E',
+                minWidth: 96,
+                textAlign: 'center',
+              }}
+            >
+              {isToday ? "Aujourd'hui" : shortDate(selectedDate)}
+            </span>
+            <button
+              onClick={() => setSelectedDate(dates[idx + 1])}
+              disabled={isToday}
+              aria-label="Jour suivant"
+              style={navBtn(isToday)}
+            >
+              <Chevron dir="right" />
+            </button>
           </div>
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 700,
-              color: '#1C1C2E',
-            }}
-          >
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#1C1C2E' }}>
             Bonjour {athleteProfile.name}
           </div>
         </div>
@@ -208,7 +298,7 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
             width: 12,
             height: 12,
             borderRadius: '50%',
-            background: color,
+            background: dotColor,
             flexShrink: 0,
           }}
         />
@@ -226,7 +316,7 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
       >
         {/* Arc gauge with the score number centered inside it */}
         <div style={{ position: 'relative', width: 220, maxWidth: '100%', margin: '0 auto' }}>
-          <ArcGauge value={Math.round(score)} />
+          <ArcGauge value={pending ? 0 : scoreNum} dimmed={pending} />
           <div
             style={{
               position: 'absolute',
@@ -240,26 +330,35 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
             }}
           >
             <div style={{ position: 'relative', display: 'inline-block' }}>
-              <div style={{ fontSize: 64, fontWeight: 800, color: '#1C1C2E', lineHeight: 1 }}>
-                {Math.round(score)}
-              </div>
-              {/* Delta pill */}
               <div
                 style={{
-                  position: 'absolute',
-                  top: 2,
-                  right: -42,
-                  background: delta >= 0 ? '#22C55E' : '#EF4444',
-                  color: 'white',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: '3px 9px',
-                  borderRadius: 20,
-                  whiteSpace: 'nowrap',
+                  fontSize: 64,
+                  fontWeight: 800,
+                  color: pending ? GRAY : '#1C1C2E',
+                  lineHeight: 1,
                 }}
               >
-                {delta >= 0 ? `+${delta}` : delta}
+                {pending ? '—' : scoreNum}
               </div>
+              {/* Delta pill */}
+              {delta != null && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    right: -42,
+                    background: delta >= 0 ? '#22C55E' : '#EF4444',
+                    color: 'white',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: '3px 9px',
+                    borderRadius: 20,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {delta >= 0 ? `+${delta}` : delta}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -268,32 +367,26 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
           style={{
             fontSize: 16,
             fontWeight: 600,
-            color: '#1C1C2E',
+            color: pending ? GRAY : '#1C1C2E',
             marginTop: 4,
           }}
         >
           {label}
         </div>
 
-        {/* Personal average */}
-        <div style={{ fontSize: 12, color: 'rgba(28,28,46,0.5)', marginTop: 8 }}>
-          Moyenne : {personalAvg}{' '}
-          <span style={{ color: aboveAvg ? '#22C55E' : '#EF4444', fontWeight: 700 }}>
-            {aboveAvg ? '↑' : '↓'}
-          </span>
-        </div>
+        {/* Personal average (hidden while pending) */}
+        {!pending && (
+          <div style={{ fontSize: 12, color: 'rgba(28,28,46,0.5)', marginTop: 8 }}>
+            Moyenne : {personalAvg}{' '}
+            <span style={{ color: aboveAvg ? '#22C55E' : '#EF4444', fontWeight: 700 }}>
+              {aboveAvg ? '↑' : '↓'}
+            </span>
+          </div>
+        )}
       </div>
 
-
-
-      {/* 4. Insight card */}
-      <div
-        style={{
-          ...glass,
-          padding: 16,
-          marginBottom: 12,
-        }}
-      >
+      {/* 3. Analyse card */}
+      <div style={{ ...glass, padding: 16, marginBottom: 12 }}>
         <div
           style={{
             fontSize: 10,
@@ -309,7 +402,7 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
           style={{
             fontSize: 16,
             fontWeight: 700,
-            color: '#1C1C2E',
+            color: pending ? 'rgba(28,28,46,0.5)' : '#1C1C2E',
             lineHeight: 1.4,
             marginTop: 8,
           }}
@@ -318,7 +411,7 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
         </div>
       </div>
 
-      {/* 5. Lecture du jour */}
+      {/* 4. Lecture du jour */}
       <div style={{ ...glass, padding: 14, marginBottom: 10 }}>
         <div style={{ fontSize: 10, color: 'rgba(28,28,46,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>
           Lecture du jour
@@ -336,14 +429,14 @@ export default function DRSResult({ drsData, stateInfo, onRetake }) {
         </div>
       </div>
 
-      {/* 7. 5-day mini sparkline */}
+      {/* 5. 5-day mini sparkline */}
       <div style={{ ...glass, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 11, color: 'rgba(28,28,46,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600 }}>
             Tendance 5 jours
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#1C1C2E', marginTop: 6 }}>
-            {Math.round(score)}
+            {trendBig}
           </div>
         </div>
         <Sparkline data={trendData} color={ORANGE} width={120} height={70} highlightLast />
