@@ -1,8 +1,8 @@
+// Antoine Boubée
 const tabs = [
   {
     key: 'checkin',
     label: 'Check-in',
-    // Pencil on a page — "saisir des données"
     Icon: ({ color }) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -13,7 +13,6 @@ const tabs = [
   {
     key: 'result',
     label: 'Score',
-    // Pulse / activité — "état du jour"
     Icon: ({ color }) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
@@ -23,7 +22,6 @@ const tabs = [
   {
     key: 'history',
     label: 'Historique',
-    // Axes + courbe — "données dans le temps"
     Icon: ({ color }) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 3 3 21 21 21" />

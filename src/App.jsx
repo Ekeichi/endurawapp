@@ -1,3 +1,4 @@
+// Antoine Boubée
 import { useState } from 'react'
 import CheckIn from './components/CheckIn'
 import DRSResult from './components/DRSResult'
@@ -25,7 +26,6 @@ export default function App() {
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
-      {/* grain texture overlay */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', opacity: 0.13 }}>
         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
           <filter id="grain-filter">

@@ -1,3 +1,4 @@
+// Antoine Boubée
 import { useState, useEffect } from 'react'
 import { historicalData, athleteProfile } from '../data/lucasData'
 import { getStateInfo } from '../utils/drs'
@@ -6,10 +7,8 @@ const GREEN = '#22C55E'
 const ORANGE = '#F97316'
 const RED = '#EF4444'
 const GRAY = '#9CA3AF'
-const CTL_MAX = 53.7 // historical max fitness, mirrors drs.js
+const CTL_MAX = 53.7
 
-// "Today" is fixed to June 8, 2026 — one day after the last data point, so it
-// has no historical entry until the check-in is completed.
 const TODAY = '2026-06-08'
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
@@ -17,7 +16,6 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.']
 const MONTHS_SHORT = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aoû.', 'sep.', 'oct.', 'nov.', 'déc.']
 
-// Parse a YYYY-MM-DD string as a local date (avoids UTC off-by-one).
 function parseDate(s) {
   const [y, m, d] = s.split('-').map(Number)
   return new Date(y, m - 1, d)
@@ -50,8 +48,6 @@ function Sparkline({ data, color, width = 110, height = 34, highlightLast = fals
   )
 }
 
-// Read-only pastille row (same dot system as the check-in): filled dots use
-// the state colour, empty dots are neutral grey.
 function ReadOnlyPastilles({ filled, total = 5, color }) {
   return (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -70,7 +66,6 @@ function ReadOnlyPastilles({ filled, total = 5, color }) {
   )
 }
 
-// Background gauge fill colour by DRS level.
 function gaugeColor(v) {
   if (v < 40) return '#EF4444'
   if (v < 65) return '#F97316'
@@ -78,8 +73,6 @@ function gaugeColor(v) {
   return '#22C55E'
 }
 
-// Semicircular arc gauge behind the score number. Animates the fill from 0 to
-// the value via stroke-dashoffset; re-animates whenever the value changes.
 function ArcGauge({ value, dimmed }) {
   const R = 92, SW = 8, CX = 110, CY = 102
   const len = Math.PI * R
@@ -118,7 +111,6 @@ function Chevron({ dir }) {
   )
 }
 
-// Lecture du jour rows from a resolved day model (charge / forme / bien-être).
 function buildLectureRows({ fatigueRatio, fitness, s_subj }) {
   const chargeFilled = clamp(Math.round(fatigueRatio * 5), 0, 5)
   const formeFilled = clamp(Math.round((fitness / CTL_MAX) * 5), 0, 5)
@@ -161,7 +153,6 @@ const PENDING_ROWS = [
 ]
 
 export default function DRSResult({ drsData }) {
-  // Browsable timeline: every historical day plus today (June 8).
   const dates = [...historicalData.map((d) => d.date), TODAY]
   const [selectedDate, setSelectedDate] = useState(TODAY)
 
@@ -172,7 +163,6 @@ export default function DRSResult({ drsData }) {
 
   const pending = isToday && !drsData
 
-  // Resolve a uniform day model for whichever date is selected.
   let model = null
   if (isToday && drsData) {
     model = {
@@ -181,7 +171,7 @@ export default function DRSResult({ drsData }) {
       fitness: drsData.fitness,
       fatigueRatio: drsData.fatigueRatio,
       s_subj: drsData.s_subj,
-      prevScore: historicalData[historicalData.length - 1].rrs_daily, // June 7
+      prevScore: historicalData[historicalData.length - 1].rrs_daily,
       trend: [...historicalData.slice(-4).map((d) => d.rrs_daily), drsData.score],
     }
   } else if (!isToday) {
@@ -214,7 +204,6 @@ export default function DRSResult({ drsData }) {
 
   const lectureRows = pending ? PENDING_ROWS : buildLectureRows(model)
 
-  // Trend: June 3–7 while pending; otherwise the 5 days ending on the selected day.
   const trendData = pending ? historicalData.slice(-5).map((d) => d.rrs_daily) : model.trend
   const trendBig = Math.round(trendData[trendData.length - 1])
 
@@ -249,7 +238,6 @@ export default function DRSResult({ drsData }) {
         flexDirection: 'column',
       }}
     >
-      {/* 1. Header row with date navigator */}
       <div
         style={{
           display: 'flex',
@@ -259,7 +247,6 @@ export default function DRSResult({ drsData }) {
         }}
       >
         <div>
-          {/* Date navigator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <button
               onClick={() => setSelectedDate(dates[idx - 1])}
@@ -304,7 +291,6 @@ export default function DRSResult({ drsData }) {
         />
       </div>
 
-      {/* 2. Hero score card */}
       <div
         style={{
           ...glass,
@@ -314,7 +300,6 @@ export default function DRSResult({ drsData }) {
           position: 'relative',
         }}
       >
-        {/* Arc gauge with the score number centered inside it */}
         <div style={{ position: 'relative', width: 220, maxWidth: '100%', margin: '0 auto' }}>
           <ArcGauge value={pending ? 0 : scoreNum} dimmed={pending} />
           <div
@@ -340,7 +325,6 @@ export default function DRSResult({ drsData }) {
               >
                 {pending ? '—' : scoreNum}
               </div>
-              {/* Delta pill */}
               {delta != null && (
                 <div
                   style={{
@@ -374,7 +358,6 @@ export default function DRSResult({ drsData }) {
           {label}
         </div>
 
-        {/* Personal average (hidden while pending) */}
         {!pending && (
           <div style={{ fontSize: 12, color: 'rgba(28,28,46,0.5)', marginTop: 8 }}>
             Moyenne : {personalAvg}{' '}
@@ -385,7 +368,6 @@ export default function DRSResult({ drsData }) {
         )}
       </div>
 
-      {/* 3. Analyse card */}
       <div style={{ ...glass, padding: 16, marginBottom: 12 }}>
         <div
           style={{
@@ -411,7 +393,6 @@ export default function DRSResult({ drsData }) {
         </div>
       </div>
 
-      {/* 4. Lecture du jour */}
       <div style={{ ...glass, padding: 14, marginBottom: 10 }}>
         <div style={{ fontSize: 10, color: 'rgba(28,28,46,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>
           Lecture du jour
@@ -429,7 +410,6 @@ export default function DRSResult({ drsData }) {
         </div>
       </div>
 
-      {/* 5. 5-day mini sparkline */}
       <div style={{ ...glass, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 11, color: 'rgba(28,28,46,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600 }}>

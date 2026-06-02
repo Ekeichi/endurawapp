@@ -1,3 +1,4 @@
+// Antoine Boubée
 import { useEffect, useRef, useState } from 'react'
 
 export default function CircularGauge({ score, color = '#F97316', size = 200, label }) {
@@ -21,7 +22,6 @@ export default function CircularGauge({ score, color = '#F97316', size = 200, la
       if (!startTimeRef.current) startTimeRef.current = timestamp
       const elapsed = timestamp - startTimeRef.current
       const progress = Math.min(elapsed / duration, 1)
-      // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
 
       setAnimatedOffset(startOffset + (targetOffset - startOffset) * eased)
@@ -48,7 +48,6 @@ export default function CircularGauge({ score, color = '#F97316', size = 200, la
         height={size}
         style={{ transform: 'rotate(-225deg)' }}
       >
-        {/* Background arc */}
         <circle
           cx={cx}
           cy={cy}
@@ -59,7 +58,6 @@ export default function CircularGauge({ score, color = '#F97316', size = 200, la
           strokeDasharray={`${arcLength} ${circumference}`}
           strokeLinecap="round"
         />
-        {/* Progress arc */}
         <circle
           cx={cx}
           cy={cy}
@@ -73,7 +71,6 @@ export default function CircularGauge({ score, color = '#F97316', size = 200, la
         />
       </svg>
 
-      {/* Center content */}
       <div
         style={{
           position: 'absolute',

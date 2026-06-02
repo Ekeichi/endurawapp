@@ -1,3 +1,4 @@
+// Antoine Boubée
 export default function PastilleSelector({ count, value, onChange, labels }) {
   return (
     <div className="w-full">

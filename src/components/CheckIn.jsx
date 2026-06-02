@@ -1,3 +1,4 @@
+// Antoine Boubée
 import { useState } from 'react'
 import PastilleSelector from './PastilleSelector'
 import TimeWheelPicker from './TimeWheelPicker'
@@ -109,7 +110,6 @@ export default function CheckIn({ onComplete }) {
         overflow: 'hidden',
       }}
     >
-      {/* Progress bar */}
       <div
         style={{
           height: 4,
@@ -128,7 +128,6 @@ export default function CheckIn({ onComplete }) {
         />
       </div>
 
-      {/* Step indicator + back button row */}
       <div
         style={{
           display: 'flex',
@@ -138,7 +137,6 @@ export default function CheckIn({ onComplete }) {
           flexShrink: 0,
         }}
       >
-        {/* Back arrow */}
         <button
           onClick={handleBack}
           aria-label="Retour"
@@ -179,11 +177,9 @@ export default function CheckIn({ onComplete }) {
           {step + 1} / {TOTAL_STEPS}
         </span>
 
-        {/* Spacer to keep step indicator centered */}
         <div style={{ width: 32 }} />
       </div>
 
-      {/* Screens container */}
       <div
         style={{
           flex: 1,
@@ -212,7 +208,6 @@ export default function CheckIn({ onComplete }) {
               visibility: i === step ? 'visible' : 'hidden',
             }}
           >
-            {/* Question text */}
             <div style={{ marginBottom: 40 }}>
               <h1
                 style={{
@@ -238,7 +233,6 @@ export default function CheckIn({ onComplete }) {
               </p>
             </div>
 
-            {/* Pastille selector */}
             <PastilleSelector
               count={screen.count}
               value={answers[screen.key]}
@@ -246,7 +240,6 @@ export default function CheckIn({ onComplete }) {
               labels={screen.labels}
             />
 
-            {/* Sleep time wheel pickers (screen 2) */}
             {screen.hasSleep && (
               <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>
                 <div style={{ flex: 1 }}>
@@ -266,7 +259,6 @@ export default function CheckIn({ onComplete }) {
               </div>
             )}
 
-            {/* Continue / Submit button */}
             {(screen.hasSleep || screen.isFinal) && (
               <button
                 onClick={handleContinue}

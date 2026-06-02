@@ -1,14 +1,15 @@
+// Antoine Boubée
 import { useRef, useState } from 'react'
 
-const RADIUS = 110          // cylinder radius in px
-const ITEM_H = 36           // item arc height on cylinder surface
-const ANGLE_STEP = (ITEM_H / RADIUS) * (180 / Math.PI)  // ~18.7° per item
-const VIEWPORT_H = 200      // visible window height
+const RADIUS = 110
+const ITEM_H = 36
+const ANGLE_STEP = (ITEM_H / RADIUS) * (180 / Math.PI)
+const VIEWPORT_H = 200
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
 function WheelColumn({ items, selectedIndex, onChange }) {
-  const [dragOffset, setDragOffset] = useState(0)   // fractional items
+  const [dragOffset, setDragOffset] = useState(0)
   const [snapping, setSnapping] = useState(false)
   const startY  = useRef(null)
   const startOff = useRef(0)
@@ -35,9 +36,7 @@ function WheelColumn({ items, selectedIndex, onChange }) {
     setSnapping(true)
   }
 
-  // effective float index (includes drag)
   const effIdx    = selectedIndex + dragOffset
-  // how much the drum has rotated (positive = drum tilts back = higher index faces forward)
   const drumAngle = effIdx * ANGLE_STEP
 
   return (
@@ -46,7 +45,6 @@ function WheelColumn({ items, selectedIndex, onChange }) {
         height: VIEWPORT_H,
         overflow: 'hidden',
         position: 'relative',
-        // 3-D perspective on the cylinder
         perspective: `${RADIUS * 3.5}px`,
         perspectiveOrigin: '50% 50%',
         cursor: 'ns-resize',
@@ -62,7 +60,6 @@ function WheelColumn({ items, selectedIndex, onChange }) {
       onTouchMove={onMove}
       onTouchEnd={onEnd}
     >
-      {/* ── rotating drum ── */}
       <div
         style={{
           position: 'absolute',
@@ -79,10 +76,10 @@ function WheelColumn({ items, selectedIndex, onChange }) {
         onTransitionEnd={() => setSnapping(false)}
       >
         {items.map((label, i) => {
-          const itemAngle = -i * ANGLE_STEP                   // fixed position on drum
-          const faceAngle = (effIdx - i) * ANGLE_STEP         // angle toward viewer
+          const itemAngle = -i * ANGLE_STEP
+          const faceAngle = (effIdx - i) * ANGLE_STEP
           const abs = Math.abs(faceAngle)
-          if (abs > 85) return null                           // behind the cylinder
+          if (abs > 85) return null
 
           const brightness = Math.max(0, 1 - abs / 65)
           const fontSize   = abs < 10 ? 22 : abs < 25 ? 18 : 14
@@ -113,14 +110,12 @@ function WheelColumn({ items, selectedIndex, onChange }) {
         })}
       </div>
 
-      {/* top fade */}
       <div style={{
         position: 'absolute', inset: 0,
         background: 'linear-gradient(to bottom, rgba(255,255,255,0.35) 0%, transparent 38%, transparent 62%, rgba(255,255,255,0.35) 100%)',
         pointerEvents: 'none', zIndex: 2,
       }} />
 
-      {/* selection band */}
       <div style={{
         position: 'absolute',
         top: '50%', left: 0, right: 0,

@@ -1,9 +1,11 @@
-# Readiness App — Enduraw
+# Readiness App
+## Cas technique Enduraw
 
 Application mobile-first de collecte quotidienne de l'état de forme d'un athlète d'endurance. Elle calcule un Daily Readiness Score (DRS) en croisant la charge d'entraînement objective et le ressenti subjectif recueilli via un check-in rapide.
 
 Le profil de démonstration est Lucas, traileur, avec 5 semaines de données historiques (4 mai → 7 juin 2026).
 
+l'application est consultable à tout moment ici : https://endurawapp.vercel.app/
 ---
 
 ## Fonctionnalités

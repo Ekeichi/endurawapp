@@ -1,3 +1,4 @@
+// Antoine Boubée
 export const historicalData = [
   { date: "2026-05-04", semaine: "S1", jour: "Lun", type_seance: "repos", distance_km: 0, denivele_m: 0, tss: 0, ctl: 53.7, atl: 47.1, tsb: 6.5, atl_ctl_ratio: 0.878, fatigue_generale: 2, stress_percu: 2, douleurs_musculaires: 2, qualite_sommeil: 2, motivation: 4, duree_sommeil_h: 7.5, s_subjectif: 0.821, mod_subjectif: 1.192, rrs_objectif: 74.3, rrs_daily: 88.5, etat: "forme_stable" },
   { date: "2026-05-05", semaine: "S1", jour: "Mar", type_seance: "endurance_fondamentale", distance_km: 8, denivele_m: 0, tss: 35, ctl: 53.2, atl: 45.4, tsb: 7.8, atl_ctl_ratio: 0.853, fatigue_generale: 2, stress_percu: 2, douleurs_musculaires: 2, qualite_sommeil: 2, motivation: 4, duree_sommeil_h: 7.5, s_subjectif: 0.821, mod_subjectif: 1.192, rrs_objectif: 75.7, rrs_daily: 90.2, etat: "forme_stable" },

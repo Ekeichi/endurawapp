@@ -1,3 +1,4 @@
+// Antoine Boubée
 import { useState, useRef, useEffect } from 'react'
 import {
   AreaChart,
@@ -12,10 +13,6 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
-// Three-tier state colouring:
-//   green  → pic_de_forme, forme_montante, surcompensation, recuperation
-//   orange → accumulation, forme_stable
-//   red    → surmenage, fatigue_latente
 const etatColors = {
   pic_de_forme: '#22C55E',
   forme_montante: '#22C55E',
@@ -38,10 +35,6 @@ const etatLabels = {
   pic_de_forme: 'Pic de forme',
 }
 
-// Subjective signals, weighted as in the DRS engine. `good` maps each raw
-// daily value to a 0..1 score (1 = best). A signal's "drag" is weight*(1-good).
-// `arrow` shows the direction the metric moved in the unfavourable sense:
-//   ↓ = quality dropped (sleep, motivation), ↑ = load rose (fatigue, pain, stress).
 const SIGNALS = [
   { key: 'sommeil',    label: 'Sommeil',    arrow: '↓', weight: 0.30, good: (d) => (7 - d.qualite_sommeil) / 6 },
   { key: 'fatigue',    label: 'Fatigue',    arrow: '↑', weight: 0.25, good: (d) => (7 - d.fatigue_generale) / 6 },
@@ -80,10 +73,9 @@ const glass = {
   boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
 }
 
-// Floating glass card shown on tap, positioned above (or below) the point.
 function FloatingTip({ sel }) {
   const { d, cardX, py } = sel
-  const below = py < 96 // flip under the point when too close to the top
+  const below = py < 96
   const translate = below ? 'translate(-50%, 14px)' : 'translate(-50%, calc(-100% - 14px))'
   const color = etatColors[d.etat] || '#F97316'
 
@@ -145,7 +137,6 @@ export default function History({ data }) {
   const [sel, setSel] = useState(null)
   const chartRef = useRef(null)
 
-  // Dismiss the floating tooltip when tapping anywhere outside the chart.
   useEffect(() => {
     if (!sel) return
     const onDocClick = (ev) => {
@@ -155,7 +146,6 @@ export default function History({ data }) {
     return () => document.removeEventListener('click', onDocClick)
   }, [sel])
 
-  // Tap on a curve point → select it (ignore empty space / missing days).
   const handleChartClick = (e) => {
     if (e && e.activePayload && e.activePayload.length && e.activeCoordinate) {
       const d = e.activePayload.map((p) => p.payload).find((p) => p && !p.missing && p.score != null)
@@ -169,7 +159,6 @@ export default function History({ data }) {
     setSel(null)
   }
 
-  // --- Build a continuous daily timeline so missing days create real gaps ---
   const present = data.map((d) => {
     const dateObj = new Date(d.date)
     return {
@@ -189,7 +178,6 @@ export default function History({ data }) {
   const byT = new Map(present.map((p) => [p.t, p]))
   const tToWeek = new Map(present.map((p) => [p.t, p.semaine]))
 
-  // Full series including null-score placeholders for missing calendar days.
   const fullData = []
   for (let t = 0; t <= lastT; t++) {
     const p = byT.get(t)
@@ -212,7 +200,6 @@ export default function History({ data }) {
 
   const lastPresentT = present[present.length - 1].t
 
-  // --- Gaps: dashed bridge + hollow placeholder dots (not interpolated values) ---
   const bridges = []
   const missingDots = []
   for (let i = 0; i < present.length - 1; i++) {
@@ -227,8 +214,6 @@ export default function History({ data }) {
     }
   }
 
-  // --- Badge anchors: first day of each contiguous run of a key state ---
-  // --- Week tick positions on the shared time axis ---
   const weekTicks = []
   const seenWeeks = new Set()
   for (const p of present) {
@@ -238,7 +223,6 @@ export default function History({ data }) {
     }
   }
 
-  // --- Weekly delta (avg DRS this week vs last) ---
   const weekOrder = []
   const seen2 = new Set()
   for (const p of present) {
@@ -252,7 +236,6 @@ export default function History({ data }) {
   const prevWeek = weekOrder[weekOrder.length - 2]
   const weekDelta = prevWeek ? Math.round(avgFor(lastWeek) - avgFor(prevWeek)) : 0
 
-  // --- Weekly insight: which signal dragged most across the current week ---
   const lastWeekDays = present.filter((p) => p.semaine === lastWeek)
   const dragTotals = {}
   for (const d of lastWeekDays) {
@@ -265,12 +248,10 @@ export default function History({ data }) {
     ? `Cette semaine, ${SIGNAL_PHRASE[worstSignal]} a le plus pesé.`
     : null
 
-  // Y-domain bounds (shared by area + reference layers).
   const scores = present.map((p) => p.score)
   const yMin = Math.floor(Math.min(...scores) - 8)
   const maxTss = Math.max(...present.map((p) => p.tss), 1)
 
-  // --- Key points (lowest / highest / today) ---
   const sorted = [...fullData.filter((d) => !d.missing)].sort((a, b) => a.score - b.score)
   const lowest = sorted[0]
   const highest = sorted[sorted.length - 1]
@@ -292,7 +273,6 @@ export default function History({ data }) {
         padding: '24px 16px 16px',
       }}
     >
-      {/* Header with weekly delta pill */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ color: '#1C1C2E', fontSize: 28, fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
@@ -321,7 +301,6 @@ export default function History({ data }) {
         </div>
       </div>
 
-      {/* Chart card: DRS curve + TSS bars on a shared time axis */}
       <div style={{ ...glass, marginBottom: 12, padding: '16px 8px 8px' }}>
         <div ref={chartRef} style={{ position: 'relative' }}>
         <ResponsiveContainer width="100%" height={210}>
@@ -340,7 +319,6 @@ export default function History({ data }) {
             <YAxis hide domain={[yMin, 100]} />
             <Tooltip content={() => null} cursor={{ stroke: 'rgba(249,115,22,0.25)', strokeWidth: 1 }} />
 
-            {/* Dashed bridges across missing days */}
             {bridges.map((g, i) => (
               <ReferenceLine
                 key={`bridge-${i}`}
@@ -378,7 +356,6 @@ export default function History({ data }) {
               activeDot={false}
             />
 
-            {/* Hollow placeholder dots for missing days (not real values) */}
             {missingDots.map((m, i) => (
               <ReferenceDot
                 key={`miss-${i}`}
@@ -395,7 +372,6 @@ export default function History({ data }) {
           </AreaChart>
         </ResponsiveContainer>
 
-        {/* Selected-point highlight ring + floating glass card */}
         {sel && (
           <>
             <div
@@ -419,7 +395,6 @@ export default function History({ data }) {
         )}
         </div>
 
-        {/* TSS bars — same time axis, subdued */}
         <ResponsiveContainer width="100%" height={70}>
           <BarChart data={fullData} margin={{ top: 0, right: 12, left: 12, bottom: 0 }}>
             <XAxis
@@ -438,14 +413,12 @@ export default function History({ data }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Weekly insight line */}
       {weeklyInsight && (
         <p style={{ color: 'rgba(28,28,46,0.6)', fontSize: 14, fontWeight: 500, margin: '0 0 24px', paddingLeft: 4 }}>
           {weeklyInsight}
         </p>
       )}
 
-      {/* Key points section */}
       <div>
         <h2 style={{ color: '#1C1C2E', fontSize: 18, fontWeight: 700, margin: '0 0 12px' }}>
           Points clés
