@@ -4,6 +4,7 @@ import CheckIn from './components/CheckIn'
 import DRSResult from './components/DRSResult'
 import History from './components/History'
 import BottomNav from './components/BottomNav'
+import { Analytics } from '@vercel/analytics/react'
 import { historicalData } from './data/lucasData'
 import { computeDRS, getStateInfo } from './utils/drs'
 
@@ -49,6 +50,7 @@ export default function App() {
       </div>
 
       <BottomNav activeView={view} onNavigate={setView} />
+      <Analytics />
     </div>
   )
 }
